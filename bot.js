@@ -39,3 +39,4 @@ client.on('messageCreate', async (msg) => {
 });
 
 client.login(process.env.DISCORD_TOKEN);
+
