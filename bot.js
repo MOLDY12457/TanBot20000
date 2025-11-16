@@ -71,5 +71,16 @@ client.on('messageCreate', async (msg) => {
 
   msg.reply(`Demande envoyée dans #demandes-lua`);
 });
+// === KEEP ALIVE POUR RENDER ===
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
 
+app.get('/', (req, res) => {
+  res.status(200).send('Bot ON - UnLockedSteam');
+});
+
+app.listen(PORT, () => {
+  console.log(`Ping server ON → http://localhost:${PORT}`);
+});
 client.login(process.env.DISCORD_TOKEN);
