@@ -5,10 +5,12 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 
-const UPLOAD_CHANNEL = 'upload-lua'; // nom exact
+const UPLOAD_CHANNEL = 'upload-lua';
+const DEMANDE_CHANNEL = 'demandes-lua'; // ← CRÉÉ CE SALON !
 
 client.once('ready', () => {
-  console.log('Bot prêt ! Tape /get <appid> pour avoir le ZIP');
+  console.log('Bot ON');
+  console.log('Salons :', UPLOAD_CHANNEL, '→', DEMANDE_CHANNEL);
 });
 
 client.on('messageCreate', async (msg) => {
@@ -17,26 +19,36 @@ client.on('messageCreate', async (msg) => {
 
   const appId = msg.content.split(' ')[1]?.trim();
   if (!appId || !/^\d+$/.test(appId)) {
-    return msg.reply('❌ Utilise : `/get 252490`');
+    return msg.reply('❌ `/get 252490`');
   }
 
-  const channel = msg.guild.channels.cache.find(ch => ch.name === UPLOAD_CHANNEL);
-  if (!channel) return msg.reply('❌ Salon `#upload-lua` introuvable');
+  const uploadChannel = msg.guild.channels.cache.find(ch => ch.name === UPLOAD_CHANNEL);
+  if (!uploadChannel) return msg.reply('❌ `#upload-lua` introuvable');
 
-  // Cherche le message avec le ZIP
-  const messages = await channel.messages.fetch({ limit: 100 });
-  const zipMessage = messages.find(m => 
-    m.attachments.size > 0 && 
-    m.attachments.first().name === `${appId}.zip`
-  );
+  const messages = await uploadChannel.messages.fetch({ limit: 100 });
+  const zipMessage = messages.find(m => m.attachments.first()?.name === `${appId}.zip`);
 
-  if (!zipMessage) {
-    return msg.reply(`❌ Aucun \`${appId}.zip\` trouvé dans #upload-lua`);
+  if (zipMessage) {
+    return msg.reply(`[Télécharger ${appId}.zip](${zipMessage.attachments.first().url})`);
   }
 
-  const zipUrl = zipMessage.attachments.first().url;
-  msg.reply(`📦 **${appId}.zip** → [Télécharger](${zipUrl})`);
+  const demandeChannel = msg.guild.channels.cache.find(ch => ch.name === DEMANDE_CHANNEL);
+  if (!demandeChannel) {
+    console.log('ERREUR: #demandes-lua introuvable');
+    return msg.reply('❌ `#demandes-lua` introuvable → crée-le !');
+  }
+
+  const botPerms = demandeChannel.permissionsFor(client.user);
+  if (!botPerms?.has('SendMessages') || !botPerms?.has('MentionEveryone')) {
+    return msg.reply('❌ Pas de permission dans `#demandes-lua`');
+  }
+
+  await demandeChannel.send({
+    content: `@here **Demande de jeu**\n> **App ID :** \`${appId}\`\n> **Par :** ${msg.author}\n> Ajoute \`${appId}.zip\` dans #upload-lua`,
+    allowedMentions: { parse: ['everyone'] }
+  });
+
+  msg.reply(`Demande envoyée dans #demandes-lua avec @here`);
 });
 
 client.login(process.env.DISCORD_TOKEN);
-
