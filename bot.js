@@ -6,91 +6,93 @@ console.log('🚀 BOT DÉMARRE...');
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// === REPO PUBLIQUE ===
+// === TA REPO ===
 const GITHUB_RAW = "https://raw.githubusercontent.com/MOLDY12457/TanBot20000.games/master";
-// =====================
+// ===============
 
-// === SITE PING ===
+// === SITE WEB – URL RECUPÉRÉE ===
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0';  // <-- OBLIGATOIRE SUR RENDER
 
 app.get('/', (req, res) => {
-  console.log('🌐 Page ping accédée');
+  const url = req.protocol + '://' + req.get('host');
+  console.log(`🌐 Page accédée : ${url}`);
   res.send(`
-    <h1 style="color:lime">BOT ONLINE</h1>
-    <p>Heure : ${new Date().toLocaleString('fr-FR')}</p>
-    <p>Repo : <a href="https://github.com/MOLDY12457/TanBot20000.games">GitHub</a></p>
+    <meta charset="utf-8">
+    <title>UnLockedSteam Bot</title>
+    <style>body{font-family:Arial;background:#111;color:#0f0;text-align:center;padding:50px;}h1{color:#0f0;}</style>
+    <h1>BOT ONLINE</h1>
+    <p><b>URL :</b> <a href="${url}">${url}</a></p>
+    <p><b>Heure :</b> ${new Date().toLocaleString('fr-FR')}</p>
+    <p><b>Repo :</b> <a href="https://github.com/MOLDY12457/TanBot20000.games">GitHub</a></p>
+    <hr>
+    <p><span style="color:lime">UptimeRobot ping ici toutes les 5 min</span></p>
   `);
 });
 
-app.listen(PORT, () => {
-  console.log(`🌐 Site ON → port ${PORT}`);
+app.listen(PORT, HOST, () => {
+  const url = `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'ton-bot.onrender.com'}`;
+  console.log(`🌐 SITE ON → ${url}`);
 });
-// ==================
+// =================================
 
+// === BOT ===
 client.once('ready', () => {
   console.log(`✅ Bot connecté : ${client.user.tag}`);
-  console.log(`📍 Serveur : ${client.guilds.cache.size} serveur(s)`);
-  console.log(`🔗 Test lien : ${GITHUB_RAW}/252490.zip`);
+  console.log(`🔗 Test : ${GITHUB_RAW}/252490.zip`);
 
   const command = new SlashCommandBuilder()
     .setName('get')
     .setDescription('Télécharge un jeu')
-    .addIntegerOption(option =>
-      option.setName('appid')
-        .setDescription('App ID')
-        .setRequired(true)
-    );
+    .addIntegerOption(o => o.setName('appid').setDescription('App ID').setRequired(true));
 
   client.application.commands.create(command)
-    .then(() => console.log('✅ /get enregistrée'))
-    .catch(err => console.log('❌ Erreur /get :', err.message));
+    .then(() => console.log('✅ /get OK'))
+    .catch(e => console.log('❌ /get erreur :', e.message));
 });
 
-client.on('interactionCreate', async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-  console.log(`🎮 /get ${interaction.options.getInteger('appid')} par ${interaction.user.tag}`);
+client.on('interactionCreate', async (i) => {
+  if (!i.isChatInputCommand() || i.commandName !== 'get') return;
 
-  const appId = interaction.options.getInteger('appid');
-  const zipName = `${appId}.zip`;
-  const directLink = `${GITHUB_RAW}/${zipName}`;
+  const appId = i.options.getInteger('appid');
+  const zip = `${appId}.zip`;
+  const link = `${GITHUB_RAW}/${zip}`;
 
-  await interaction.deferReply();
+  console.log(`🎮 /get ${appId}`);
+
+  await i.deferReply();
 
   try {
-    const res = await fetch(directLink);
-    console.log(`📡 Status ${res.status}`);
+    const res = await fetch(link);
+    console.log(`📡 ${res.status}`);
 
-    if (!res.ok) throw new Error();
+    if (!res.ok) throw 0;
 
-    const embed = new EmbedBuilder()
-      .setColor('#00ff00')
-      .setTitle(`App ID: ${appId}`)
-      .setDescription(`[Télécharger ${zipName}](${directLink})`)
-      .setTimestamp();
+    await i.editReply({
+      embeds: [new EmbedBuilder()
+        .setColor('#00ff00')
+        .setTitle(`App ID: ${appId}`)
+        .setDescription(`[Télécharger ${zip}](${link})`)
+        .setTimestamp()
+      ]
+    });
+    console.log(`✅ Envoyé`);
+  } catch {
+    await i.editReply({
+      embeds: [new EmbedBuilder()
+        .setColor('#ff0000')
+        .setTitle('Introuvable')
+        .setDescription(`\`${zip}\` non trouvé`)
+        .setTimestamp()
+      ]
+    });
 
-    await interaction.editReply({ embeds: [embed] });
-    console.log(`✅ Lien envoyé`);
-  } catch (err) {
-    console.log(`❌ Jeu non trouvé`);
-
-    const embed = new EmbedBuilder()
-      .setColor('#ff0000')
-      .setTitle('Introuvable')
-      .setDescription(`\`${zipName}\` non trouvé`)
-      .setTimestamp();
-
-    const ch = interaction.guild.channels.cache.find(c => c.name === 'demandes-lua');
-    if (ch) {
-      await ch.send(`@here Demande : \`${appId}\` par ${interaction.user}`);
-      console.log(`📢 Demande envoyée`);
-    }
-
-    await interaction.editReply({ embeds: [embed] });
+    const ch = i.guild.channels.cache.find(c => c.name === 'demandes-lua');
+    if (ch) await ch.send(`@here Demande : \`${appId}\` par ${i.user}`);
   }
 });
 
-console.log('🔑 Connexion avec token...');
-client.login(process.env.DISCORD_TOKEN).catch(err => {
-  console.log('❌ ERREUR CONNEXION :', err.message);
+client.login(process.env.DISCORD_TOKEN).catch(e => {
+  console.log('❌ TOKEN INVALIDE :', e.message);
 });
